@@ -151,6 +151,11 @@ jobs:
         lunch ${{ github.event.inputs.MAKEFILE_NAME }}-eng && make clean && make ${{ github.event.inputs.BUILD_TARGET }}image -j$(nproc --all)
       working-directory: ${{ steps.pwd.outputs.workspace-folder }}
 
+    - name: Make Odin flashable
+      run: |
+        cd workspace/out/target/product/${{ github.event.inputs.DEVICE_NAME }}/
+        tar -cvf recovery.tar recovery.img && md5sum -t recovery.tar >> recovery.tar && mv recovery.tar recovery.tar.md5
+
     - name: Upload to Release
       uses: softprops/action-gh-release@v1
       with:
@@ -158,6 +163,7 @@ jobs:
           workspace/out/target/product/${{ github.event.inputs.DEVICE_NAME }}/${{ github.event.inputs.BUILD_TARGET }}.img
           workspace/out/target/product/${{ github.event.inputs.DEVICE_NAME }}/*.zip
           workspace/out/target/product/${{ github.event.inputs.DEVICE_NAME }}/*vendor*.img
+          workspace/out/target/product/${{ github.event.inputs.DEVICE_NAME }}/${{ github.event.inputs.BUILD_TARGET }}.tar.md5
         name: ${{ github.event.inputs.DEVICE_NAME }}-${{ github.run_id }}
         tag_name: ${{ github.run_id }}
         body: |

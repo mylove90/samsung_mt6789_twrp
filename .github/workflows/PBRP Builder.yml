@@ -1,0 +1,104 @@
+name: PBRP Builder
+
+on:
+  workflow_dispatch:
+    inputs:
+      DEVICE_NAME:
+        description: 'DEVICE_NAME'
+        required: true
+        default: 'a15'
+      DEVICE_TREE_URL:
+        description: 'DEVICE_TREE_URL'
+        required: true
+        default: 'https://github.com/mylove90/android_device_samsung_a15'
+      DEVICE_TREE_BRANCH:
+        description: 'DEVICE_TREE_BRANCH'
+        required: true
+        default: 'pbrp'
+env:
+  BRANCH_NAME: ${{ github.head_ref || github.ref_name }} 
+jobs:
+  build:
+    runs-on: ubuntu-20.04
+    steps:
+    - name: Check Out
+      uses: actions/checkout@v3
+    - name: Cleanup
+      uses: rokibhasansagar/slimhub_actions@v23.44.6
+    
+    - name: Prepare the environment
+      run: |
+        sudo apt update
+        sudo apt -y upgrade
+        sudo apt -y install gperf gcc-multilib gcc-10-multilib g++-multilib g++-10-multilib libc6-dev lib32ncurses5-dev x11proto-core-dev libx11-dev tree lib32z-dev libgl1-mesa-dev libxml2-utils xsltproc bc ccache lib32readline-dev lib32z1-dev liblz4-tool libncurses5-dev libsdl1.2-dev libwxgtk3.0-gtk3-dev libxml2 lzop pngcrush schedtool squashfs-tools imagemagick libbz2-dev lzma ncftp qemu-user-static libstdc++-10-dev python
+
+    - name: Swap Space
+      uses: pierotofy/set-swap-space@master
+      with:
+        swap-size-gb: 24
+        
+    - name: Install OpenJDK
+      uses: actions/setup-java@v4.2.2
+      with:
+        distribution: 'zulu'
+        java-version: '8'
+
+    - name: Setup ccache
+      uses: hendrikmuhs/ccache-action@v1.2
+      with:
+        max-size: "10G"
+
+    - name: Install repo
+      run: |
+        mkdir ~/bin
+        curl https://storage.googleapis.com/git-repo-downloads/repo > ~/bin/repo
+        chmod a+x ~/bin/repo
+        sudo ln -sf ~/bin/repo /usr/bin/repo
+      
+    - name: Initialize repo
+      run: |
+        mkdir workspace
+        cd workspace
+        echo "workspace-folder=$(pwd)" >> $GITHUB_OUTPUT
+        git config --global user.name "mylove90"
+        git config --global user.email "engm.saad1990@gmail.com"
+        repo init --depth=1 -u https://github.com/PitchBlackRecoveryProject/manifest_pb -b android-12.1
+      id: pwd
+          
+    - name: Repo Sync
+      run: |
+        repo sync -j$(nproc --all) --force-sync
+      working-directory: workspace
+      
+    - name: Clone device tree
+      run: |
+        git clone ${{ github.event.inputs.DEVICE_TREE_URL }} -b ${{ github.event.inputs.DEVICE_TREE_BRANCH }} ./device/samsung/${{ github.event.inputs.DEVICE_NAME }}
+      working-directory: ${{ steps.pwd.outputs.workspace-folder }}
+
+    - name: Building recovery
+      run: |
+        source build/envsetup.sh
+        export ALLOW_MISSING_DEPENDENCIES=true
+        lunch pb_${{ github.event.inputs.DEVICE_NAME }}-eng && make clean && mka pbrp -j$(nproc --all)
+      working-directory: ${{ steps.pwd.outputs.workspace-folder }}
+
+    - name: Make Odin flashable
+      run: |
+        cd workspace/out/target/product/${{ github.event.inputs.DEVICE_NAME }}/
+        tar -cvf recovery.tar recovery.img && md5sum -t recovery.tar >> recovery.tar && mv recovery.tar recovery.tar.md5
+
+    - name: Upload to Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: | 
+          workspace/out/target/product/${{ github.event.inputs.DEVICE_NAME }}/recovery.img
+          workspace/out/target/product/${{ github.event.inputs.DEVICE_NAME }}/recovery.tar.md5
+          workspace/out/target/product/${{ github.event.inputs.DEVICE_NAME }}/*.zip
+        name: ${{ github.event.inputs.DEVICE_NAME }}-PBRP
+        tag_name: ${{ github.run_id }}
+        body: |
+          Manifest: android-12.1
+          Device: ${{ github.event.inputs.DEVICE_NAME }}
+          Target: recovery.img.tar
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

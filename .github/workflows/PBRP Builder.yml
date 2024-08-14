@@ -4,9 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       DEVICE_NAME:
-      description: 'DEVICE_NAME'
-      required: true
-      default: 'a15'
+        description: 'DEVICE_NAME'
+        required: true
+        default: 'a15'
       DEVICE_TREE_URL:
         description: 'DEVICE_TREE_URL'
         required: true

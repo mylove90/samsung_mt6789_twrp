@@ -93,6 +93,7 @@ jobs:
         files: | 
           workspace/out/target/product/${{ github.event.inputs.DEVICE_NAME }}/recovery.img
           workspace/out/target/product/${{ github.event.inputs.DEVICE_NAME }}/recovery.tar.md5
+          workspace/out/target/product/${{ github.event.inputs.DEVICE_NAME }}/*.zip
         name: ${{ github.event.inputs.DEVICE_NAME }}-PBRP
         tag_name: ${{ github.run_id }}
         body: |

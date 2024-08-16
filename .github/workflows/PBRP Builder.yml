@@ -79,7 +79,7 @@ jobs:
       run: |
         source build/envsetup.sh
         export ALLOW_MISSING_DEPENDENCIES=true
-        lunch pb_${{ github.event.inputs.DEVICE_NAME }}-eng && make clean && make recoveryimage -j$(nproc --all)
+        lunch pb_${{ github.event.inputs.DEVICE_NAME }}-eng && make clean && mka pbrp -j$(nproc --all)
       working-directory: ${{ steps.pwd.outputs.workspace-folder }}
 
     - name: Make Odin flashable
